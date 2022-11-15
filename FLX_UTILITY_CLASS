@@ -1,0 +1,928 @@
+class ZCL_FLEXSYS_UTILITY_CLASS definition
+  public
+  final
+  create public .
+
+public section.
+
+  interfaces ZIF_FLEXSYS_UTILITY_CLASS .
+
+  aliases GENERATE_INSTANCE
+    for ZIF_FLEXSYS_UTILITY_CLASS~GENERATE_INSTANCE .
+  aliases GET_COMP_ADDRESS
+    for ZIF_FLEXSYS_UTILITY_CLASS~GET_COMP_ADDRESS .
+  aliases GET_FORM_LANGUAGE
+    for ZIF_FLEXSYS_UTILITY_CLASS~GET_FORM_LANGUAGE .
+
+  types:
+    BEGIN OF ty_message,
+        matnr   TYPE matnr,
+        shipfr  TYPE land1,
+        shipto  TYPE land1,
+        vsbed   TYPE vsbed,
+        spras   TYPE spras,
+        lwdg    TYPE zzlwdg,
+        message TYPE text1024,
+      END OF ty_message .
+  types:
+    ty_message_tt TYPE TABLE OF ty_message .
+  types:
+    BEGIN OF ty_dgdata,
+        matnr    TYPE matnr,
+        werks    TYPE werks_d,
+        shipfr   TYPE land1,
+        customer TYPE kunwe,
+        shipto   TYPE land1,
+        vsbed    TYPE vsbed,
+      END OF ty_dgdata .
+  types:
+    ty_dgdata_tt TYPE TABLE OF ty_dgdata .
+  types:
+    BEGIN OF ty_bankdet,
+        bukrs TYPE bukrs,
+        bankl TYPE bankl,
+        bankn TYPE bankk,
+        swift TYPE swift,
+        iban  TYPE iban,
+        banka	TYPE banka,
+        provz	TYPE regio,
+        stras	TYPE stras_gp,
+        ort01	TYPE ort01_gp,
+      END OF ty_bankdet .
+  types:
+    ty_lines_tt TYPE TABLE of TLINE .
+
+  constants GC_LOGO_NAME type TDOBNAME value 'ZFLEXSYS_LOGO_RGB_COLOR' ##NO_TEXT.
+  constants GC_LOGO_OBJECT type TDOBJECTGR value 'GRAPHICS' ##NO_TEXT.
+  constants GC_LOGO_ID type TDIDGR value 'BMAP' ##NO_TEXT.
+  constants GC_LOGO_TYPE type TDBTYPE value 'BCOL' ##NO_TEXT.
+  class-data:
+    gt_tvarvc TYPE STANDARD TABLE OF tvarvc .
+
+  class-methods GET_LOGO
+    exporting
+      !EV_RESULT type XSTRING .
+  class-methods GET_TVARVC_DATA
+    importing
+      !IR_NAME type ZCA_T_TVARVC
+      !IV_TYPE type RSSCR_KIND
+    exporting
+      !ET_TVARVC like GT_TVARVC .
+  class-methods GET_SIGN_LOGO_COA
+    importing
+      !IV_NAME type TDOBNAME
+      !IV_OBJECT type TDOBJECTGR
+      !IV_ID type TDIDGR
+      !IV_TYPE type TDBTYPE
+    exporting
+      !EV_RESULT type XSTRING .
+  class-methods GET_DG_DATA
+    importing
+      !IT_DGDATA type TY_DGDATA_TT
+    exporting
+      !ET_RESULT type TY_MESSAGE_TT .
+  class-methods GET_BANK_DETAILS
+    importing
+      !IV_BUKRS type BUKRS
+      !IV_CURRENCY type WAERS
+    exporting
+      !ES_BANKDET type TY_BANKDET .
+  class-methods GET_MATERIAL_TEXT
+    importing
+      !IV_DOC type THEAD-TDNAME
+    exporting
+      !ET_LINES type TY_LINES_TT .
+  class-methods GET_TM_DATA
+    importing
+      value(IV_VBELN) type VBELN optional
+      value(IV_LANGU) type SY-LANGU optional
+    exporting
+      !EV_VEHICLE type CHAR200 .
+protected section.
+private section.
+ENDCLASS.
+
+
+
+CLASS ZCL_FLEXSYS_UTILITY_CLASS IMPLEMENTATION.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>GET_LOGO
+* +-------------------------------------------------------------------------------------------------+
+* | [<---] EV_RESULT                      TYPE        XSTRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_logo.
+*&---------------------------------------------------------------------*
+* Title:          Utility Class
+* RICEF#:
+* Transaction:
+*---------------------------------------------------------------------
+* Copyright:      NDBS, Inc.
+* Client:         Flexsys America, L.P.
+*---------------------------------------------------------------------
+* Developer:      Mariya Jyothi
+* Creation Date:  07/11/2022
+* Description:    Utility Class for Logo
+*---------------------------------------------------------------------
+* Modification History
+*---------------------------------------------------------------------
+* Modified by:    <Developer (full name and user name)>
+* Date:           <Date>
+* Transport:      <Transport Request #>
+* Description:
+* <Description of the change (or the source for the initial
+* creation if a template or SAP program was used as a starting point>
+*&---------------------------------------------------------------------*
+*----Get the Logo Details
+    CALL METHOD cl_ssf_xsf_utilities=>get_bds_graphic_as_bmp
+      EXPORTING
+        p_object       = gc_logo_object
+        p_name         = gc_logo_name
+        p_id           = gc_logo_id
+        p_btype        = gc_logo_type
+      RECEIVING
+        p_bmp          = ev_result
+      EXCEPTIONS
+        not_found      = 1
+        internal_error = 2
+        OTHERS         = 3.
+    IF sy-subrc NE 0.
+      CLEAR ev_result.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>GET_TVARVC_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IR_NAME                        TYPE        ZCA_T_TVARVC
+* | [--->] IV_TYPE                        TYPE        RSSCR_KIND
+* | [<---] ET_TVARVC                      LIKE        GT_TVARVC
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_tvarvc_data.
+
+*&---------------------------------------------------------------------*
+*& Class-Method   GET_TVARVC_DATA
+*&---------------------------------------------------------------------*
+* Title:          Utility Class: Fetching TVARVC Entries
+* RICEF#:
+*---------------------------------------------------------------------
+* Copyright:      NDBS, Inc.
+* Client:         Flexsys America, L.P.
+*---------------------------------------------------------------------
+* Developer:      Shalini Panjala
+* Creation Date:  07/08/2022
+* Description:    Fetching TVARVC Entries
+*---------------------------------------------------------------------
+* Modification History
+*---------------------------------------------------------------------
+* Modified by:    <Developer (full name and user name)>
+* Date:           <Date>
+* Transport:      <Transport Request #>
+* Description:
+* <Description of the change (or the source for the initial
+* creation if a template or SAP program was used as a starting point>
+*---------------------------------------------------------------------
+*---------------------------------------------------------------------
+*   Mod no:      full name:   user name:     Date:          Transport: *
+
+*   Description: Code Commented
+*---------------------------------------------------------------------
+
+*Fetching TVARVC Data
+    REFRESH : gt_tvarvc.
+    SELECT *
+      FROM tvarvc
+      INTO TABLE gt_tvarvc
+      WHERE name IN ir_name
+      AND   type = iv_type.
+    IF sy-subrc IS INITIAL.
+      et_tvarvc = gt_tvarvc.
+      REFRESH : gt_tvarvc.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>GET_BANK_DETAILS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_BUKRS                       TYPE        BUKRS
+* | [--->] IV_CURRENCY                    TYPE        WAERS
+* | [<---] ES_BANKDET                     TYPE        TY_BANKDET
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_bank_details.
+
+*-- Local constants declarations
+    CONSTANTS: lc_i      TYPE c VALUE 'I',
+               lc_eq     TYPE char2 VALUE 'EQ',
+               lc_accid  TYPE tvarvc-name VALUE 'ZPTR_COMPCODE_ACCID',
+               lc_ctry   TYPE tvarvc-name VALUE 'ZPTR_COMPCODE_CTRY',
+               lc_hbank  TYPE tvarvc-name VALUE 'ZPTR_COMPCODE_HBANK',
+               lc_type_s TYPE rsscr_kind  VALUE 'S'.
+
+*-- Local data declarations
+    DATA: lr_accid TYPE fclm_t_range_hktid,
+          lr_ctry  TYPE mdg_fica_banks_range_table,
+          lr_name  TYPE zca_t_tvarvc,
+          lr_hbank TYPE fclm_t_range_hbkid.
+
+    CLEAR es_bankdet.
+*--Get the TVARVC entries
+    lr_name  = VALUE #( sign = lc_i option = lc_eq  ( low  = lc_accid )
+                                                    ( low  = lc_ctry  )
+*                                                    ( low  = lc_curr  )
+                                                    ( low  = lc_hbank ) ).
+
+*-- Call the utility class method to pull TVARVC entries
+    CALL METHOD zcl_flexsys_utility_class=>get_tvarvc_data
+      EXPORTING
+        ir_name   = lr_name
+        iv_type   = lc_type_s
+      IMPORTING
+        et_tvarvc = DATA(lt_tvarvc).
+
+    LOOP AT lt_tvarvc INTO DATA(ls_tvarvc) WHERE low = iv_bukrs.
+      CASE ls_tvarvc-name.
+        WHEN lc_accid.
+*--Get the default Account ID
+          lr_accid = VALUE #( BASE  lr_accid ( sign = lc_i option = lc_eq low = ls_tvarvc-high ) ).
+        WHEN lc_ctry.
+*--Get the default Country
+          lr_ctry  = VALUE #( BASE  lr_ctry  ( sign = lc_i option = lc_eq low = ls_tvarvc-high ) ).
+*        WHEN lc_curr.
+**--Get the default Currency
+*          lr_curr  = VALUE #( BASE  lr_curr  ( sign = lc_i option = lc_eq low = ls_tvarvc-high ) ).
+        WHEN lc_hbank.
+*--Get the default House Bank
+          lr_hbank = VALUE #( BASE  lr_hbank ( sign = lc_i option = lc_eq low = ls_tvarvc-high ) ).
+      ENDCASE.
+    ENDLOOP.
+
+*-- Pass the company code into the below structure
+    es_bankdet-bukrs = iv_bukrs.
+
+*-- Get the Bank Key
+    SELECT SINGLE bukrs,
+                  hbkid,
+                  banks,
+                  bankl
+             FROM t012
+             INTO @DATA(ls_t012)
+            WHERE bukrs = @iv_bukrs
+              AND hbkid IN @lr_hbank
+              AND banks IN @lr_ctry.
+    IF ls_t012 IS NOT INITIAL.
+      es_bankdet-bankl = ls_t012-bankl.
+    ENDIF.
+
+*-- Get the Bank Account Number
+    SELECT SINGLE bukrs,
+                  hbkid,
+                  hktid,
+                  bankn,
+                  waers
+             FROM t012k
+             INTO @DATA(ls_t012k)
+            WHERE bukrs = @iv_bukrs
+              AND hbkid IN @lr_hbank
+              AND hktid IN @lr_accid
+              AND waers = @iv_currency.
+    IF ls_t012 IS NOT INITIAL.
+      es_bankdet-bankn = ls_t012k-bankn.
+    ENDIF.
+
+*-- Get the Swift code, Bank Name, Region, Street & House Number, City
+    IF ls_t012-bankl IS NOT INITIAL.
+      SELECT SINGLE banks,
+                    bankl,
+                    banka,
+                    provz,
+                    stras,
+                    ort01,
+                    swift
+               FROM bnka
+               INTO @DATA(ls_bnka)
+              WHERE banks IN @lr_ctry
+                AND bankl = @ls_t012-bankl.
+      IF ls_bnka IS NOT INITIAL.
+        es_bankdet-swift = ls_bnka-swift.
+        es_bankdet-banka = ls_bnka-banka.
+        es_bankdet-provz = ls_bnka-provz.
+        es_bankdet-stras = ls_bnka-stras.
+        es_bankdet-ort01 = ls_bnka-ort01.
+      ENDIF.
+    ENDIF.
+
+*-- Get the IBAN Number
+    IF ls_t012-bankl IS NOT INITIAL AND
+       ls_t012k-bankn IS NOT INITIAL.
+      SELECT SINGLE banks,
+                    bankl,
+                    bankn,
+                    bkont,
+                    iban
+               FROM tiban
+               INTO @DATA(ls_tiban)
+              WHERE banks IN @lr_ctry
+                AND bankl = @ls_t012-bankl
+                AND bankn = @ls_t012k-bankn.
+      IF ls_tiban IS NOT INITIAL.
+        es_bankdet-iban = ls_tiban-iban.
+      ENDIF.
+    ENDIF.
+
+*-- Check if IBAN exists
+    IF es_bankdet-iban IS NOT INITIAL.
+      CLEAR es_bankdet-bankl.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>GET_DG_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IT_DGDATA                      TYPE        TY_DGDATA_TT
+* | [<---] ET_RESULT                      TYPE        TY_MESSAGE_TT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_dg_data.
+*-- Types declarations
+    TYPES: BEGIN OF ty_data,
+             matnr  TYPE matnr,
+             lwdg   TYPE zzlwdg,
+             spras  TYPE spras,
+             shipfr TYPE land1,
+             shipto TYPE land1,
+             vsbed  TYPE vsbed,
+           END OF ty_data.
+
+*-- Local Internal tables/Structures declarations
+    DATA: lt_dg_ctry    TYPE TABLE OF zots_dg_ctry,
+          lr_spras      TYPE spras_range_t,
+          lr_regulation TYPE zots_lwdg_range_tt,
+          ls_text       TYPE ty_message,
+          lt_data       TYPE TABLE OF ty_data,
+          ls_data       TYPE ty_data,
+          lr_name       TYPE zca_t_tvarvc,
+          lr_profl      TYPE zots_profl_range_tt.
+
+*-- Local constants declarations
+    CONSTANTS: lc_i             TYPE c VALUE 'I',
+               lc_eq            TYPE char2 VALUE 'EQ',
+               lc_en(2)         TYPE c VALUE 'EN',
+               lc_yes(3)        TYPE c VALUE 'Yes',
+               lc_road          TYPE zzregu_desc VALUE 'ROAD',
+               lc_default_profl TYPE tvarvc-name VALUE 'ZOTS_058_PROFL',
+               lc_default_lang  TYPE tvarvc-name VALUE 'ZOTS_DG_PLANT_LANG',
+               lc_type_s        TYPE rsscr_kind  VALUE 'S',
+               lc_openbr        TYPE rsscr_kind  VALUE '(',
+               lc_closebr       TYPE rsscr_kind  VALUE ')'.
+
+    REFRESH: et_result.
+
+*--Get the TVARVC entries
+    lr_name = VALUE #( sign = lc_i option = lc_eq  ( low = lc_default_profl ) ).
+
+    lr_name = VALUE #( BASE lr_name ( sign = lc_i option = lc_eq  low = lc_default_lang ) ).
+
+*-- Call the utility class method to pull TVARVC entries
+    CALL METHOD zcl_flexsys_utility_class=>get_tvarvc_data
+      EXPORTING
+        ir_name   = lr_name
+        iv_type   = lc_type_s
+      IMPORTING
+        et_tvarvc = DATA(lt_tvarvc).
+
+    IF lt_tvarvc IS NOT INITIAL.
+*--Get the default Profile
+      lr_profl = VALUE zots_profl_range_tt( sign = lc_i option = lc_eq ( low = lt_tvarvc[ name = lc_default_profl ]-low ) ).
+
+*-- Get the default Languages
+*      lr_spras = VALUE spras_range_t( sign = lc_i option = lc_eq ( low = ls_dgdata-werks lt_tvarvc[ name = lc_default_lang ]-low ) ).
+    ENDIF.
+
+*-- Fetch the data combining tables ZOTS_DG_SHIPPING & ZOTS_DG_REG_CONT
+    SELECT a~lwdg,
+           a~vsbed,
+           a~vtext,
+           b~regu_desc,
+           b~region
+      FROM zots_dg_shipping AS a
+      INNER JOIN zots_dg_reg_cont AS b
+      ON  a~lwdg = b~lwdg
+      AND a~regu_desc = b~regu_desc
+      FOR ALL ENTRIES IN @it_dgdata
+     WHERE vsbed = @it_dgdata-vsbed
+      INTO TABLE @DATA(lt_dgship_cont).
+    IF sy-subrc EQ 0.
+      SORT lt_dgship_cont BY lwdg vsbed.
+    ENDIF.
+
+*-- Fetch the data for Materials from MARA
+    SELECT matnr,
+           profl
+      FROM mara
+      FOR ALL ENTRIES IN @it_dgdata
+     WHERE matnr = @it_dgdata-matnr
+      INTO TABLE @DATA(lt_mara).
+    IF sy-subrc EQ 0.
+      SORT lt_mara BY matnr.
+    ENDIF.
+
+*-- Fetch the data for Shipping From Language from T001W Plant
+    SELECT werks,
+           spras
+      FROM t001w
+      FOR ALL ENTRIES IN @it_dgdata
+     WHERE werks = @it_dgdata-werks
+      INTO TABLE @DATA(lt_t001w).
+    IF sy-subrc EQ 0.
+      SORT lt_t001w BY werks.
+    ENDIF.
+
+*-- Fetch the data for Shipping To Language from KNA1 Customer
+    SELECT kunnr,
+           spras
+      FROM kna1
+      FOR ALL ENTRIES IN @it_dgdata
+     WHERE kunnr = @it_dgdata-customer
+      INTO TABLE @DATA(lt_kna1).
+    IF sy-subrc EQ 0.
+      SORT lt_kna1 BY kunnr.
+    ENDIF.
+
+*-- Fetch the data from table ZOTS_DG_REG_CONT
+    CALL FUNCTION 'VIEW_GET_DATA'
+      EXPORTING
+        view_name              = 'ZOTS_DG_CTRY'
+      TABLES
+        data                   = lt_dg_ctry
+      EXCEPTIONS
+        no_viewmaint_tool      = 1
+        no_authority           = 2
+        no_auth_for_sel        = 3
+        data_access_restricted = 4
+        no_functiongroup       = 5
+        OTHERS                 = 6.
+    IF sy-subrc <> 0.
+* Implement suitable error handling here
+    ENDIF.
+
+*-- Process the Dangerous Goods data from method
+    LOOP AT it_dgdata INTO DATA(ls_dgdata).
+      IF line_exists( lt_mara[ matnr = ls_dgdata-matnr ] ).
+        DATA(ls_mara) = lt_mara[ matnr = ls_dgdata-matnr ].
+        IF ls_mara-profl IN lr_profl.
+          ls_data-matnr  = ls_dgdata-matnr.
+          ls_data-shipfr = ls_dgdata-shipfr.
+          ls_data-shipto = ls_dgdata-shipto.
+          ls_data-vsbed  = ls_dgdata-vsbed.
+*          IF line_exists( lt_t001w[ werks = ls_dgdata-werks ] ).
+*            DATA(ls_t001w) = lt_t001w[ werks = ls_dgdata-werks ].
+*            ls_data-spras = ls_t001w-spras.
+*          ENDIF.
+          IF line_exists( lt_tvarvc[ name = lc_default_lang low = ls_dgdata-werks ] ).
+            DATA(ls_tvarvc) = lt_tvarvc[ name = lc_default_lang low = ls_dgdata-werks ].
+            ls_data-spras = ls_tvarvc-high.
+          ENDIF.
+          IF line_exists( lt_dg_ctry[ land1 = ls_dgdata-shipfr ] ).
+            DATA(ls_dg_ctry)    = lt_dg_ctry[ land1 = ls_dgdata-shipfr ].
+*-- Get the Regulation for Region codes (Continents)
+            IF line_exists( lt_dgship_cont[ vsbed     = ls_dgdata-vsbed
+                                            region    = ls_dg_ctry-zzregion_code
+                                            regu_desc = lc_road ] ).
+              DATA(ls_dgship_cont) = lt_dgship_cont[ vsbed     =  ls_dgdata-vsbed
+                                                     region    = ls_dg_ctry-zzregion_code
+                                                     regu_desc = lc_road ].
+              ls_data-lwdg = ls_dgship_cont-lwdg.
+            ELSE.
+*-- Get the Regulation for No region codes (Continents)
+              CLEAR ls_dgship_cont.
+              IF line_exists( lt_dgship_cont[ vsbed  =  ls_dgdata-vsbed ] ).
+                ls_dgship_cont = lt_dgship_cont[ vsbed  =  ls_dgdata-vsbed ].
+                ls_data-lwdg = ls_dgship_cont-lwdg.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+
+          APPEND ls_data TO lt_data.
+          CLEAR ls_data-spras.
+
+*-- Default english should be passed
+          ls_data-spras = lc_en.
+          APPEND ls_data TO lt_data.
+          CLEAR ls_data-spras.
+
+*-- Shipto Country language
+          IF line_exists( lt_kna1[ kunnr = ls_dgdata-customer ] ).
+            DATA(ls_kna1) = lt_kna1[ kunnr = ls_dgdata-customer ].
+            ls_data-spras = ls_kna1-spras.
+          ENDIF.
+
+          APPEND ls_data TO lt_data.
+          CLEAR ls_data.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+
+    IF lt_data IS NOT INITIAL.
+*-- Fetch data from ZDG_INF_DETAILS table
+      SELECT *
+        FROM zdg_inf_details
+        INTO TABLE @DATA(lt_inf_det)
+        FOR ALL ENTRIES IN @lt_data
+       WHERE matnr = @lt_data-matnr
+         AND spras = @lt_data-spras
+         AND lwdg  = @lt_data-lwdg.
+      IF lt_inf_det IS NOT INITIAL.
+*-- Process the DG interface data to populate texts
+        LOOP AT lt_inf_det INTO DATA(ls_inf_det).
+          IF line_exists( lt_data[ matnr = ls_inf_det-matnr
+                                   spras = ls_inf_det-spras
+                                   lwdg  = ls_inf_det-lwdg ] ).
+            ls_data = lt_data[ matnr = ls_inf_det-matnr
+                               spras = ls_inf_det-spras
+                               lwdg  = ls_inf_det-lwdg ].
+            ls_text-shipfr = ls_data-shipfr.
+            ls_text-shipto = ls_data-shipto.
+            ls_text-vsbed  = ls_data-vsbed .
+          ENDIF.
+          ls_text-matnr   = ls_inf_det-matnr.
+          ls_text-spras   = ls_inf_det-spras.
+          ls_text-lwdg    = ls_inf_det-lwdg.
+          IF ls_inf_det-dgnad_add IS NOT INITIAL.
+            ls_inf_det-dgnad_add = lc_openbr && ls_inf_det-dgnad_add && lc_closebr.
+          ENDIF.
+          IF ls_inf_det-tunnel_code IS NOT INITIAL.
+            ls_inf_det-tunnel_code = lc_openbr && ls_inf_det-tunnel_code && lc_closebr.
+          ENDIF.
+          ls_text-message = ls_inf_det-dgnu      && ',' && ls_inf_det-dgnad && ',' &&
+*                            ls_inf_det-dgnad_add && ',' && ls_inf_det-tunnel_code && ',' && "Defect 2411
+*                            ls_inf_det-dgcl && ',' && ls_inf_det-pgro." && ',' && lc_yes.   "Defect 2411
+                            ls_inf_det-dgnad_add && ',' &&  ls_inf_det-dgcl && ',' &&        "Defect 2411
+                            ls_inf_det-pgro && ',' && ls_inf_det-tunnel_code.                "Defect 2411
+
+          APPEND ls_text TO et_result.
+          CLEAR ls_text.
+        ENDLOOP.
+      ENDIF.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>GET_MATERIAL_TEXT
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_DOC                         TYPE        THEAD-TDNAME
+* | [<---] ET_LINES                       TYPE        TY_LINES_TT
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_material_text.
+*&---------------------------------------------------------------------*
+*& METHOD          GET_MATERIAL_TEXT
+*&---------------------------------------------------------------------*
+* Title:          GET_MATERIAL_TEXT
+* RICEF#:         26, 13,
+* Transaction:
+*---------------------------------------------------------------------
+* Copyright:      NDBS, Inc.
+* Client:         Flexsys America, L.P.
+*---------------------------------------------------------------------
+* Developer:      Shalini Panjala
+* Creation Date:  10/20/2022
+* Description:    GET_MATERIAL_TEXT for all OTS forms
+*---------------------------------------------------------------------
+* Modification History
+*---------------------------------------------------------------------
+* Modified by:    <Developer (full name and user name)>
+* Date:           <Date>
+* Transport:      <Transport Request #>
+* Description:
+* <Description of the change (or the source for the initial
+* creation if a template or SAP program was used as a starting point>
+*---------------------------------------------------------------------
+    DATA : lv_id    TYPE thead-tdid,
+           lt_lines TYPE TABLE OF tline.
+    CONSTANTS: lc_vbbp TYPE thead-tdobject VALUE 'VBBP',
+               lc_name TYPE rvari_vnam     VALUE 'ZOTS_MATERIAL_TEXT',
+               lc_type TYPE rsscr_kind     VALUE 'S'.
+
+*get Tvarvc entries
+    SELECT SINGLE *
+      FROM tvarvc
+      INTO @DATA(ls_tvarvc)
+      WHERE name = @lc_name.
+    IF sy-subrc = 0.
+    ENDIF.
+
+    IF iv_doc IS NOT INITIAL.
+      lv_id = ls_tvarvc-high.
+*      Customer Material Text
+      CALL FUNCTION 'READ_TEXT'
+        EXPORTING
+          id                      = lv_id
+          language                = sy-langu
+          name                    = iv_doc
+          object                  = lc_vbbp
+        TABLES
+          lines                   = lt_lines
+        EXCEPTIONS
+          id                      = 1
+          language                = 2
+          name                    = 3
+          not_found               = 4
+          object                  = 5
+          reference_check         = 6
+          wrong_access_to_archive = 7
+          OTHERS                  = 8.
+
+      IF lt_lines IS INITIAL.
+        CLEAR: lv_id.
+        lv_id = ls_tvarvc-low.
+
+        CALL FUNCTION 'READ_TEXT'
+          EXPORTING
+            id                      = lv_id
+            language                = sy-langu
+            name                    = iv_doc
+            object                  = lc_vbbp
+          TABLES
+            lines                   = lt_lines
+          EXCEPTIONS
+            id                      = 1
+            language                = 2
+            name                    = 3
+            not_found               = 4
+            object                  = 5
+            reference_check         = 6
+            wrong_access_to_archive = 7
+            OTHERS                  = 8.
+      ENDIF.
+
+      IF lt_lines IS NOT INITIAL .
+        et_lines = lt_lines.
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>GET_SIGN_LOGO_COA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_NAME                        TYPE        TDOBNAME
+* | [--->] IV_OBJECT                      TYPE        TDOBJECTGR
+* | [--->] IV_ID                          TYPE        TDIDGR
+* | [--->] IV_TYPE                        TYPE        TDBTYPE
+* | [<---] EV_RESULT                      TYPE        XSTRING
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD GET_SIGN_LOGO_COA.
+*&---------------------------------------------------------------------*
+* Title:          Utility Class
+* RICEF#:
+* Transaction:
+*---------------------------------------------------------------------
+* Copyright:      NDBS, Inc.
+* Client:         Flexsys America, L.P.
+*---------------------------------------------------------------------
+* Developer:      Mariya Jyothi
+* Creation Date:  09/08/2022
+* Description:    Approver Signature Logo for COA Form at Footer Level
+*---------------------------------------------------------------------
+* Modification History
+*---------------------------------------------------------------------
+* Modified by:    <Developer (full name and user name)>
+* Date:           <Date>
+* Transport:      <Transport Request #>
+* Description:
+* <Description of the change (or the source for the initial
+* creation if a template or SAP program was used as a starting point>
+*&---------------------------------------------------------------------*
+*----Get the Logo Details
+    CALL METHOD cl_ssf_xsf_utilities=>get_bds_graphic_as_bmp
+      EXPORTING
+        p_object       = iv_object
+        p_name         = iv_name
+        p_id           = iv_id
+        p_btype        = iv_type
+      RECEIVING
+        p_bmp          = ev_result
+      EXCEPTIONS
+        not_found      = 1
+        internal_error = 2
+        OTHERS         = 3.
+    IF sy-subrc NE 0.
+      CLEAR ev_result.
+    ENDIF.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>GET_TM_DATA
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] IV_VBELN                       TYPE        VBELN(optional)
+* | [--->] IV_LANGU                       TYPE        SY-LANGU(optional)
+* | [<---] EV_VEHICLE                     TYPE        CHAR200
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD get_tm_data.
+
+*&---------------------------------------------------------------------*
+*& Method          GET_TM_DATA
+*&---------------------------------------------------------------------*
+* Title:          Get TM related data
+* RICEF#:
+* Transaction:
+*---------------------------------------------------------------------
+* Copyright:      NDBS, Inc.
+* Client:         Flexsys America, L.P.
+*---------------------------------------------------------------------
+* Developer:      Sireesha Bellamkonda
+* Creation Date:  11/05/2022
+* Description:    This method is used in DElviery note/ pick and pack list
+*                  forms gor getting vehicle/Container/Equiment dtls
+* Transport:       FLDK906696
+*---------------------------------------------------------------------
+* Modification History
+*---------------------------------------------------------------------
+* Modified by:
+* Date:
+* Transport:
+* Defect:
+* Description:
+*---------------------------------------------------------------------
+    CONSTANTS: lc_bo          TYPE /scmtms/tor_category VALUE 'BO',
+               lc_to          TYPE /scmtms/tor_category VALUE 'TO',
+               lc_ref         TYPE /scmtms/bo_short_name VALUE 'TOR',
+               lc_itm_cat_tur TYPE /scmtms/d_torite-item_cat VALUE 'TUR',
+               lc_itm_cat_pvr TYPE /scmtms/d_torite-item_cat VALUE 'PVR'.
+    DATA: lt_key         TYPE /bobf/t_frw_key,
+          ls_key         TYPE /bobf/s_frw_key,
+          lt_root        TYPE /scmtms/t_tor_root_k,
+          lt_item_tr     TYPE /scmtms/t_tor_item_tr_k,
+          lv_delv_number TYPE /scmtms/d_torite-base_btd_id.
+    lv_delv_number = |{ iv_vbeln ALPHA = IN }|.
+
+* Fetching of Data for Freight Fields
+    SELECT a~db_key AS itm_db_key,
+           a~parent_key,
+           a~base_btd_id,
+           b~db_key,
+           b~tor_id,
+           b~tor_cat,
+           b~tor_type
+      FROM /scmtms/d_torite AS a
+      INNER JOIN /scmtms/d_torrot AS b
+      ON b~db_key = a~parent_key
+      INTO TABLE @DATA(lt_freight)
+      WHERE a~base_btd_id = @lv_delv_number
+        AND b~tor_cat IN ( @lc_to, @lc_bo ).
+    IF sy-subrc = 0.
+      READ TABLE lt_freight INTO DATA(ls_freight_to) WITH KEY tor_cat = lc_to.
+      IF sy-subrc EQ 0.
+        DATA(lv_freight_num) = ls_freight_to-tor_id.
+        ls_key-key = ls_freight_to-db_key.
+      ENDIF.
+      IF lv_freight_num IS INITIAL.
+        READ TABLE lt_freight INTO DATA(ls_freight_bo) WITH KEY tor_cat = lc_bo.
+        IF sy-subrc EQ 0.
+          lv_freight_num  = ls_freight_bo-tor_id.
+          ls_key-key = ls_freight_bo-db_key.
+        ENDIF.
+      ENDIF.
+      APPEND ls_key TO lt_key.
+      CALL METHOD /scmtms/cl_print_helper=>get_tor_nodes
+        EXPORTING
+          it_key     = lt_key
+        IMPORTING
+          et_root    = lt_root
+          et_item_tr = lt_item_tr.
+      IF lt_root IS NOT INITIAL.
+        DATA(ls_root) = lt_root[ 1 ].
+        DATA(lv_carrier) = ls_root-tspid.
+      ENDIF.
+*--Road freight order
+      IF lt_item_tr IS NOT INITIAL.
+        READ TABLE lt_item_tr INTO DATA(ls_item) WITH KEY item_cat = lc_itm_cat_pvr."'PVR'.
+        IF sy-subrc EQ 0.
+          READ TABLE lt_root INTO DATA(ls_root_to) WITH KEY tor_cat = lc_to.
+          IF sy-subrc EQ 0.
+            DATA(lv_plate_num) = ls_item-platenumber.
+          ENDIF.
+        ENDIF.
+*--Ocean freight
+        READ TABLE lt_item_tr INTO ls_item WITH KEY item_cat = lc_itm_cat_tur."'TUR'.
+        IF sy-subrc EQ 0.
+          READ TABLE lt_root INTO DATA(ls_root_bo) WITH KEY tor_cat = lc_bo.
+          IF sy-subrc EQ 0.
+            lv_plate_num = ls_item-platenumber.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+*--Get the Trans ID/Measn of transport
+*--Display trans id from LIKP if data not found in abvoe tables
+    SELECT SINGLE vbeln, traid
+    INTO @DATA(ls_likp)
+          FROM likp
+          WHERE vbeln EQ @iv_vbeln.
+    IF sy-subrc EQ 0.
+      IF lv_plate_num IS INITIAL.
+        lv_plate_num = ls_likp-traid.
+      ENDIF.
+    ENDIF.
+*--Get Equioment details
+    READ TABLE lt_item_tr INTO ls_item WITH KEY item_cat = lc_itm_cat_tur."'TUR'.
+    IF sy-subrc EQ 0.
+      SELECT SINGLE spras, equi_type, equi_code,descr
+        FROM /scmb/equi_codet
+        INTO @DATA(ls_equip)
+        WHERE spras EQ @iv_langu
+        AND equi_code EQ @ls_item-tures_tco.
+      IF sy-subrc EQ 0.
+      ENDIF.
+    ENDIF.
+*--Concatenate platenumber anequipment details
+    CONCATENATE lv_plate_num ls_item-tures_tco ls_equip-descr  INTO ev_vehicle
+    SEPARATED BY ','.
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Static Public Method ZCL_FLEXSYS_UTILITY_CLASS=>ZIF_FLEXSYS_UTILITY_CLASS~GENERATE_INSTANCE
+* +-------------------------------------------------------------------------------------------------+
+* | [<-()] RESULT                         TYPE REF TO ZCL_FLEXSYS_UTILITY_CLASS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD zif_flexsys_utility_class~generate_instance.
+    result = NEW zcl_flexsys_utility_class( ).
+  ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_FLEXSYS_UTILITY_CLASS->ZIF_FLEXSYS_UTILITY_CLASS~GET_COMP_ADDRESS
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] COMP_CODE                      TYPE        BUKRS
+* | [--->] LANGUAGE                       TYPE        SY-LANGU
+* | [<---] COMP_CODE_ADDRESS              TYPE        CHAR255
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD zif_flexsys_utility_class~get_comp_address.
+    SELECT SINGLE *
+       FROM zcds_comp_address( p_comp_code = @comp_code, p_langu = @language )
+       INTO @DATA(comp_add).
+    IF sy-subrc = 0.
+      IF comp_add-name1 IS NOT INITIAL AND comp_add-street IS NOT INITIAL.
+        DATA(addr1) = comp_add-name1 && cl_abap_char_utilities=>newline && comp_add-street.
+      ELSEIF comp_add-name1 IS INITIAL AND comp_add-street IS NOT INITIAL.
+        addr1 = comp_add-street .
+      ELSEIF comp_add-name1 IS NOT INITIAL AND comp_add-street IS INITIAL.
+        addr1 = comp_add-name1.
+      ENDIF.
+      IF comp_add-city1 IS NOT INITIAL AND comp_add-post_code1 IS NOT INITIAL.
+        DATA(Addr2) = comp_add-city1 && ',' && | | &&  comp_add-post_code1.
+      ELSEIF comp_add-city1 IS INITIAL AND comp_add-post_code1 IS NOT INITIAL.
+        addr2 = comp_add-post_code1.
+      ELSEIF comp_add-city1 IS NOT INITIAL AND comp_add-post_code1 IS INITIAL.
+        addr2 = comp_add-city1.
+      ENDIF.
+      IF comp_add-region IS NOT INITIAL AND comp_add-landx IS NOT INITIAL.
+        DATA(Addr3) = comp_add-region && ',' && | | &&  comp_add-landx.
+      ELSEIF comp_add-region IS INITIAL AND comp_add-landx IS NOT INITIAL.
+        addr3 = comp_add-landx.
+      ELSEIF comp_add-region IS NOT INITIAL AND comp_add-landx IS INITIAL.
+        addr3 = comp_add-region.
+      ENDIF.
+      comp_code_address = addr1 && cl_abap_char_utilities=>newline && addr2 && cl_abap_char_utilities=>newline && addr3.
+    ENDIF.
+ENDMETHOD.
+
+
+* <SIGNATURE>---------------------------------------------------------------------------------------+
+* | Instance Public Method ZCL_FLEXSYS_UTILITY_CLASS->ZIF_FLEXSYS_UTILITY_CLASS~GET_FORM_LANGUAGE
+* +-------------------------------------------------------------------------------------------------+
+* | [--->] APP_OBJ_TYPE                   TYPE        APOC_APPL_OBJECT_TYPE
+* | [--->] DOCUMENT_NUM                   TYPE        APOC_APPL_OBJECT_ID
+* | [--->] OUTPUT_TYPE                    TYPE        APOC_OUTPUT_TYPE
+* | [--->] CUSTOM_FORM_NAME               TYPE        APOC_FORM_TEMPLATE_ID
+* | [<---] FORM_LANGUAGE                  TYPE        SPRAS
+* +--------------------------------------------------------------------------------------</SIGNATURE>
+  METHOD zif_flexsys_utility_class~get_form_language.
+*    SELECT SINGLE form_template_language_code AS language
+*      FROM apoc_d_or_item INTO @form_language
+*      WHERE appl_object_type = @app_obj_type
+*      AND appl_object_id = @document_num
+*      AND output_type = @output_type
+*      AND form_template_name = @custom_form_name
+*      AND status = '1'.
+*    IF sy-subcs <> 0.
+*      form_language = sy-langu.
+*    ENDIF.
+    DATA: gs_output TYPE apoc_s_or_item_ui.
+    IMPORT apoc_s_or_item_ui TO gs_output FROM MEMORY ID 'ZITEM_UI'.
+    IF sy-subrc = 0.
+      form_language = gs_output-form_template_language_code.
+    ELSE.
+      form_language = sy-langu.
+    ENDIF.
+    CLEAR gs_output.
+  ENDMETHOD.
+ENDCLASS.
